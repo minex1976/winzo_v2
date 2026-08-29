@@ -1511,7 +1511,7 @@
         <!-- ===== AUTH SCREEN ===== -->
         <div id="authScreen" class="auth-screen">
             <div class="logo"><h2>🎯 <span>WINZO</span></h2></div>
-            <div class="subtitle">Bet 10 or 20 Birr</div>
+            <div class="subtitle">Bet 15 or 30 Birr</div>
             <div id="authError" class="auth-error"></div>
             <div class="telegram-info" id="telegramInfo">📱 Detecting Telegram user...</div>
             <input type="text" id="authUsername" placeholder="Username" maxlength="20" autocomplete="username">
@@ -1530,8 +1530,8 @@
                 <div style="color:#8ab0c8;font-size:0.8rem;letter-spacing:1px;margin-top:4px;">Choose your bet amount</div>
             </div>
             <div class="bet-options">
-                <button id="bet10Btn">10 <span class="label">Birr</span></button>
-                <button id="bet20Btn">20 <span class="label">Birr</span></button>
+                <button id="bet15Btn">15 <span class="label">Birr</span></button>
+                <button id="bet30Btn">30 <span class="label">Birr</span></button>
             </div>
             <div class="wallet-info">Play balance: <span class="amount" id="welcomeBalance">0</span> Birr</div>
             <div style="display:flex;gap:8px;margin-top:4px;">
@@ -1542,8 +1542,8 @@
 
         <!-- ===== GAME SCREEN ===== -->
         <div id="gameScreen">
-            <div class="title">✨ <span style="color:#f5c542;">WINZO</span> · <small id="modeLabel">10 Birr</small></div>
-            <div style="text-align:center;"><span class="room-badge" id="gameRoomBadge">💰 Bet: 10 Birr</span></div>
+            <div class="title">✨ <span style="color:#f5c542;">WINZO</span> · <small id="modeLabel">15 Birr</small></div>
+            <div style="text-align:center;"><span class="room-badge" id="gameRoomBadge">💰 Bet: 15 Birr</span></div>
 
             <div class="wallet-bar">
                 <div class="wallet-left">
@@ -1571,8 +1571,8 @@
 
             <div class="bet-switcher">
                 <span class="label">🎯 Bet:</span>
-                <button class="bet-btn active" id="switchBet10">10 Birr</button>
-                <button class="bet-btn" id="switchBet20">20 Birr</button>
+                <button class="bet-btn active" id="switchBet15">15 Birr</button>
+                <button class="bet-btn" id="switchBet30">30 Birr</button>
             </div>
 
             <div class="game-info-bar">
@@ -1602,7 +1602,7 @@
             </div>
 
             <div class="status-area" id="statusMessage">
-                <span>⏳ Pick one number · Bet: <span class="highlight" id="betDisplay">10</span> Birr</span>
+                <span>⏳ Pick one number · Bet: <span class="highlight" id="betDisplay">15</span> Birr</span>
             </div>
 
             <div class="profile-area">
@@ -1682,7 +1682,7 @@
     <canvas id="fireworksCanvas"></canvas>
 
     <!-- ============================================================ -->
-    <!-- JAVASCRIPT – COMPLETE WITH FIXED TIMER                     -->
+    <!-- JAVASCRIPT – COMPLETE WITH BET 15/30 AND FIXED LOGIC       -->
     <!-- ============================================================ -->
     <script>
         // ============================================================
@@ -2045,7 +2045,7 @@
         // ============================================================
         //  LOCAL DB – clear all data on logout
         // ============================================================
-        const APP_VERSION = '2.5';
+        const APP_VERSION = '2.6';
         const DB = {
             getCurrentUser() { return localStorage.getItem('bingo_current_user') || null; },
             setCurrentUser(username) {
@@ -2094,8 +2094,8 @@
         let currentUser = null;
         let gameRef = null;
         let isGameInitialized = false;
-        let currentBet = 10;
-        let currentRoom = 'room_10';
+        let currentBet = 15; // changed default to 15
+        let currentRoom = 'room_15';
         let walletData = { main: 0, play: 0, pending: 0 };
 
         let engineState = {
@@ -2156,14 +2156,14 @@
         const authStatus = $('authStatus');
         const telegramInfo = $('telegramInfo');
 
-        const bet10Btn = $('bet10Btn');
-        const bet20Btn = $('bet20Btn');
+        const bet15Btn = $('bet15Btn');
+        const bet30Btn = $('bet30Btn');
         const welcomeBalance = $('welcomeBalance');
         const welcomeLogoutBtn = $('welcomeLogoutBtn');
         const welcomeDepositBtn = $('welcomeDepositBtn');
 
-        const switchBet10 = $('switchBet10');
-        const switchBet20 = $('switchBet20');
+        const switchBet15 = $('switchBet15');
+        const switchBet30 = $('switchBet30');
 
         const walletUsername = $('walletUsername');
         const mainWalletEl = $('mainWallet');
@@ -2429,7 +2429,7 @@
             const savedBet = DB.getSavedBet();
             if (savedBet && firebaseAvailable) {
                 currentBet = savedBet;
-                currentRoom = savedBet === 10 ? 'room_10' : 'room_20';
+                currentRoom = savedBet === 15 ? 'room_15' : 'room_30';
                 showGameScreen();
                 initGameConnection();
             }
@@ -2460,12 +2460,12 @@
         }
 
         function updateBetSwitcher() {
-            if (currentBet === 10) {
-                switchBet10.classList.add('active');
-                switchBet20.classList.remove('active');
+            if (currentBet === 15) {
+                switchBet15.classList.add('active');
+                switchBet30.classList.remove('active');
             } else {
-                switchBet20.classList.add('active');
-                switchBet10.classList.remove('active');
+                switchBet30.classList.add('active');
+                switchBet15.classList.remove('active');
             }
         }
 
@@ -2578,8 +2578,8 @@
             clearAllLocalData();
 
             currentUser = null;
-            currentBet = 10;
-            currentRoom = 'room_10';
+            currentBet = 15;
+            currentRoom = 'room_15';
             isGameInitialized = false;
             audioPlayedThisRound = false;
             syncInProgress = false;
@@ -2644,7 +2644,7 @@
             }
             isGameInitialized = false;
             currentBet = amount;
-            currentRoom = amount === 10 ? 'room_10' : 'room_20';
+            currentRoom = amount === 15 ? 'room_15' : 'room_30';
             DB.setSavedBet(amount);
             showGameScreen();
             initGameConnection();
@@ -2666,7 +2666,7 @@
                 return;
             }
             currentBet = amount;
-            currentRoom = amount === 10 ? 'room_10' : 'room_20';
+            currentRoom = amount === 15 ? 'room_15' : 'room_30';
             DB.setSavedBet(amount);
             showGameScreen();
             initGameConnection();
@@ -2979,34 +2979,24 @@
                     startTimer();
                 }
 
-                // Spin triggered by timer (via requestSpin) – the timer itself calls requestSpin when it hits 0.
-                // Also handle the case where the timer already hit 0 in Firebase data.
+                // Spin triggered by timer (via requestSpin) – also handle if timer already 0 in data
                 if (engineState.gamePhase === 'selection' && engineState.timer <= 0) {
-                    // The timer has reached 0 – request a spin if not already spinning and at least one player has picked.
                     const playersWithPick = Object.keys(engineState.players).filter(name => {
                         const p = engineState.players[name];
                         return p && p.pick !== null && p.round === engineState.roundNumber;
                     });
                     if (playersWithPick.length > 0) {
-                        // Only trigger if not already triggered (avoid duplicate)
-                        // We can rely on the timer's requestSpin but also catch here if phaseDeadline is old.
-                        // But we'll let requestSpin handle it.
-                        // However, if we get here from sync and timer is 0, we should request spin.
-                        // But to avoid multiple calls, we check if we are already spinning.
                         if (!engineState.isSpinning && !engineState.spinInProgress) {
-                            // Ensure we stop timer and request spin
                             stopTimer();
                             if (!audioPlayedThisRound) {
                                 playGetReadyAudio();
                                 audioPlayedThisRound = true;
                             }
-                            // Wait a moment then request spin via Firebase
                             setTimeout(() => {
                                 requestSpin();
                             }, 500);
                         }
                     } else {
-                        // No players picked – reset the round.
                         gameRef.update({ gameState: 'selection', timer: 30, selectionEndsAt: getServerNow() + SELECTION_SECONDS * 1000 });
                     }
                 }
@@ -3020,21 +3010,18 @@
         }
 
         // ============================================================
-        //  REQUEST SPIN (new helper)
+        //  REQUEST SPIN
         // ============================================================
         function requestSpin() {
             if (!gameRef || engineState.gamePhase !== 'selection') return;
-            // Only spin if at least one player (including self) has picked a number
             const playersWithPick = Object.keys(engineState.players).filter(name => {
                 const p = engineState.players[name];
                 return p && p.pick !== null && p.round === engineState.roundNumber;
             });
             if (playersWithPick.length === 0) {
-                // No one picked – restart the round
                 gameRef.update({ gameState: 'selection', timer: 30, selectionEndsAt: getServerNow() + SELECTION_SECONDS * 1000 });
                 return;
             }
-            // Update Firebase to spinning – this will trigger executeSpin on all clients
             gameRef.update({ gameState: 'spinning' });
         }
 
@@ -3070,7 +3057,6 @@
                 timerDisplay.textContent = remaining;
                 if (remaining <= 0) {
                     stopTimer();
-                    // Call requestSpin to trigger the spin via Firebase
                     requestSpin();
                 }
             };
@@ -3667,8 +3653,8 @@
         function init() {
             authLoginBtn.onclick = handleLogin;
             authSignupBtn.onclick = handleSignup;
-            bet10Btn.onclick = () => { selectBet(10); };
-            bet20Btn.onclick = () => { selectBet(20); };
+            bet15Btn.onclick = () => { selectBet(15); };
+            bet30Btn.onclick = () => { selectBet(30); };
 
             welcomeLogoutBtn.onclick = function() {
                 if (confirm('Are you sure you want to logout? All your local data will be cleared.')) {
@@ -3687,8 +3673,8 @@
                 depositAmount.value = '';
                 depositModal.classList.add('active');
             };
-            switchBet10.onclick = () => { switchBet(10); };
-            switchBet20.onclick = () => { switchBet(20); };
+            switchBet15.onclick = () => { switchBet(15); };
+            switchBet30.onclick = () => { switchBet(30); };
             moreBtn.onclick = toggleMoreDropdown;
             depositBtn.onclick = () => {
                 depositPlayBalance.textContent = walletData.play;
