@@ -1682,11 +1682,11 @@
     <canvas id="fireworksCanvas"></canvas>
 
     <!-- ============================================================ -->
-    <!-- JAVASCRIPT – COMPLETE WITH BET 15/30 AND FIXED LOGIC       -->
+    <!-- JAVASCRIPT – COMPLETE WITH IMMEDIATE DEDUCTION/REFUND      -->
     <!-- ============================================================ -->
     <script>
         // ============================================================
-        //  AUDIO – Web Audio API (no external files needed)
+        //  AUDIO – Web Audio API
         // ============================================================
         let audioCtx = null;
         let audioInitialized = false;
@@ -2045,7 +2045,7 @@
         // ============================================================
         //  LOCAL DB – clear all data on logout
         // ============================================================
-        const APP_VERSION = '2.6';
+        const APP_VERSION = '2.7';
         const DB = {
             getCurrentUser() { return localStorage.getItem('bingo_current_user') || null; },
             setCurrentUser(username) {
@@ -2094,7 +2094,7 @@
         let currentUser = null;
         let gameRef = null;
         let isGameInitialized = false;
-        let currentBet = 15; // changed default to 15
+        let currentBet = 15;
         let currentRoom = 'room_15';
         let walletData = { main: 0, play: 0, pending: 0 };
 
@@ -2717,39 +2717,67 @@
         }
 
         // ============================================================
-        //  BET DEDUCTION & REFUND
+        //  BET DEDUCTION & REFUND (Immediate, via Firebase)
         // ============================================================
-        function deductBetFromPlay(username, betAmount) {
-            if (!username) return false;
+        function deductBetImmediately(username, betAmount) {
+            if (!username || !database) return Promise.reject('No user or DB');
             const userRef = database.ref('users/' + username);
-            userRef.transaction(current => {
+            return userRef.transaction(current => {
                 if (current) {
                     const play = current.playWallet || 0;
                     if (play >= betAmount) {
                         current.playWallet = play - betAmount;
                     } else {
-                        return undefined;
+                        return undefined; // abort
                     }
                 }
                 return current;
+            }).then(result => {
+                if (result.committed) {
+                    walletData.play = result.snapshot.val().playWallet;
+                    updateWalletUI();
+                    updateWelcomeUI();
+                    if (gameRef) {
+                        gameRef.child('players/' + username + '/betDeducted').set(true);
+                    }
+                    return true;
+                } else {
+                    console.warn('Deduction failed or aborted');
+                    return false;
+                }
+            }).catch(err => {
+                handleError(err, 'Deduct bet');
+                return false;
             });
-            return true;
         }
 
-        function refundBetToPlay(username, betAmount) {
-            if (!username) return false;
+        function refundBetImmediately(username, betAmount) {
+            if (!username || !database) return Promise.reject('No user or DB');
             const userRef = database.ref('users/' + username);
-            userRef.transaction(current => {
+            return userRef.transaction(current => {
                 if (current) {
                     current.playWallet = (current.playWallet || 0) + betAmount;
                 }
                 return current;
+            }).then(result => {
+                if (result.committed) {
+                    walletData.play = result.snapshot.val().playWallet;
+                    updateWalletUI();
+                    updateWelcomeUI();
+                    if (gameRef) {
+                        gameRef.child('players/' + username + '/betDeducted').set(false);
+                    }
+                    return true;
+                }
+                return false;
+            }).catch(err => {
+                handleError(err, 'Refund bet');
+                return false;
             });
-            return true;
         }
 
         // ============================================================
-        //  UPDATE BETS FOR ROOM
+        //  UPDATE BETS FOR ROOM (Prize display only, deduction/refund handled immediately)
         // ============================================================
         function updateBetsForRoom() {
             if (!gameRef || !currentUser) return;
@@ -2766,27 +2794,8 @@
                 });
 
                 const takenCount = playersWithPick.length;
-                const shouldDeduct = takenCount >= 2;
-
                 engineState.totalBetsPlaced = playersWithPick.length;
                 engineState.potAmount = playersWithPick.length * currentBet;
-
-                const updates = {};
-                playersWithPick.forEach(username => {
-                    const player = players[username];
-                    const isDeducted = player.betDeducted || false;
-                    if (shouldDeduct && !isDeducted) {
-                        updates['players/' + username + '/betDeducted'] = true;
-                        deductBetFromPlay(username, player.bet || currentBet);
-                    } else if (!shouldDeduct && isDeducted) {
-                        updates['players/' + username + '/betDeducted'] = false;
-                        refundBetToPlay(username, player.bet || currentBet);
-                    }
-                });
-
-                if (Object.keys(updates).length > 0) {
-                    gameRef.update(updates);
-                }
 
                 updatePrizeDisplay();
             } finally {
@@ -2979,7 +2988,6 @@
                     startTimer();
                 }
 
-                // Spin triggered by timer (via requestSpin) – also handle if timer already 0 in data
                 if (engineState.gamePhase === 'selection' && engineState.timer <= 0) {
                     const playersWithPick = Object.keys(engineState.players).filter(name => {
                         const p = engineState.players[name];
@@ -3010,7 +3018,7 @@
         }
 
         // ============================================================
-        //  REQUEST SPIN
+        //  REQUEST SPIN (with single-player refund)
         // ============================================================
         function requestSpin() {
             if (!gameRef || engineState.gamePhase !== 'selection') return;
@@ -3018,10 +3026,32 @@
                 const p = engineState.players[name];
                 return p && p.pick !== null && p.round === engineState.roundNumber;
             });
+
             if (playersWithPick.length === 0) {
                 gameRef.update({ gameState: 'selection', timer: 30, selectionEndsAt: getServerNow() + SELECTION_SECONDS * 1000 });
                 return;
             }
+
+            if (playersWithPick.length === 1) {
+                const singlePlayer = playersWithPick[0];
+                const playerData = engineState.players[singlePlayer];
+                // Refund the single player's bet immediately
+                if (playerData.betDeducted) {
+                    refundBetImmediately(singlePlayer, playerData.bet || currentBet).then(() => {
+                        // Reset the round
+                        gameRef.update({ gameState: 'selection', timer: 30, selectionEndsAt: getServerNow() + SELECTION_SECONDS * 1000 });
+                        gameRef.child('players/' + singlePlayer + '/pick').set(null);
+                        gameRef.child('players/' + singlePlayer + '/betDeducted').set(false);
+                        gameRef.child('players/' + singlePlayer + '/round').set(null);
+                        updateStatus('⏳ Only one player. Round reset.');
+                    });
+                } else {
+                    gameRef.update({ gameState: 'selection', timer: 30, selectionEndsAt: getServerNow() + SELECTION_SECONDS * 1000 });
+                }
+                return;
+            }
+
+            // Proceed with spin (2+ players)
             gameRef.update({ gameState: 'spinning' });
         }
 
@@ -3208,7 +3238,7 @@
         }
 
         // ============================================================
-        //  NUMBER PICKER
+        //  NUMBER PICKER (with immediate deduction/refund)
         // ============================================================
         function renderNumberPicker() {
             if (!currentUser) return;
@@ -3273,26 +3303,56 @@
                 engineState.players[currentUser] = { name: currentUser, pick: null, bet: bet, ready: false,
                     betDeducted: false, round: engineState.roundNumber };
             }
-            engineState.players[currentUser].pick = newPick;
-            const isReady = newPick !== null;
-            engineState.players[currentUser].ready = isReady;
-            if (gameRef) {
-                gameRef.child('players/' + currentUser + '/pick').set(newPick);
-                gameRef.child('players/' + currentUser + '/ready').set(isReady);
-                gameRef.child('players/' + currentUser + '/betDeducted').set(false);
-                gameRef.child('players/' + currentUser + '/round').set(engineState.roundNumber);
-            }
-            if (tg && tg.HapticFeedback) {
-                if (newPick !== null) {
-                    tg.HapticFeedback.impactOccurred('light');
-                }
-            }
-            renderNumberPicker();
-            updatePickStatus();
+
+            // Immediate deduction or refund based on pick/un-pick
             if (newPick !== null) {
-                updateStatus(`✅ ${currentUser} picked ${newPick} for ${bet} Birr!`);
+                // Picking a number: deduct immediately
+                deductBetImmediately(currentUser, bet).then(success => {
+                    if (success) {
+                        // Update state
+                        engineState.players[currentUser].pick = newPick;
+                        engineState.players[currentUser].ready = true;
+                        if (gameRef) {
+                            gameRef.child('players/' + currentUser + '/pick').set(newPick);
+                            gameRef.child('players/' + currentUser + '/ready').set(true);
+                            gameRef.child('players/' + currentUser + '/round').set(engineState.roundNumber);
+                        }
+                        renderNumberPicker();
+                        updatePickStatus();
+                        updateStatus(`✅ ${currentUser} picked ${newPick} for ${bet} Birr!`);
+                        if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+                    } else {
+                        // Deduction failed – revert UI
+                        updateStatus('❌ Failed to deduct bet. Insufficient balance?');
+                        // Revert local state to old pick
+                        engineState.players[currentUser].pick = currentPick;
+                        engineState.players[currentUser].ready = currentPick !== null;
+                        if (gameRef) {
+                            gameRef.child('players/' + currentUser + '/pick').set(currentPick);
+                            gameRef.child('players/' + currentUser + '/ready').set(currentPick !== null);
+                        }
+                        renderNumberPicker();
+                        updatePickStatus();
+                    }
+                });
             } else {
-                updateStatus(`↩️ ${currentUser} unselected their number.`);
+                // Un-picking: refund immediately
+                refundBetImmediately(currentUser, bet).then(success => {
+                    if (success) {
+                        engineState.players[currentUser].pick = null;
+                        engineState.players[currentUser].ready = false;
+                        if (gameRef) {
+                            gameRef.child('players/' + currentUser + '/pick').set(null);
+                            gameRef.child('players/' + currentUser + '/ready').set(false);
+                            gameRef.child('players/' + currentUser + '/betDeducted').set(false);
+                        }
+                        renderNumberPicker();
+                        updatePickStatus();
+                        updateStatus(`↩️ ${currentUser} unselected their number. Refunded ${bet} Birr.`);
+                    } else {
+                        updateStatus('❌ Failed to refund bet. Contact support.');
+                    }
+                });
             }
         });
 
