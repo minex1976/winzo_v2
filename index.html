@@ -2757,8 +2757,10 @@
         }
 
         function getRemainingSeconds(deadline) {
-            if (!deadline) return SELECTION_SECONDS;
-            return Math.max(0, Math.ceil((deadline - getServerNow()) / 1000));
+            // A missing deadline must never mean "30 seconds forever".
+            // Legacy rooms are repaired by initializeSelectionDeadline().
+            if (!Number(deadline)) return 0;
+            return Math.max(0, Math.ceil((Number(deadline) - getServerNow()) / 1000));
         }
 
         function initializeSelectionDeadline() {
@@ -2783,6 +2785,11 @@
                 initializeSelectionDeadline();
                 return;
             }
+            if (!phaseDeadline) {
+                initializeSelectionDeadline();
+                return;
+            }
+
             if (getRemainingSeconds(phaseDeadline) > 0) return;
 
             gameRef.transaction(current => {
@@ -2869,6 +2876,10 @@
                 serverTimeOffset = Number(snapshot.val()) || 0;
             }).catch(() => {
                 serverTimeOffset = 0;
+            }).finally(() => {
+                // After the Firebase server clock is known, repair any
+                // legacy selection room that has timer=30 but no deadline.
+                initializeSelectionDeadline();
             });
 
             gameRef.once('value', snapshot => {
@@ -2966,7 +2977,22 @@
 
                 if (engineState.gamePhase === 'selection') {
                     phaseDeadline = Number(data.selectionEndsAt) || 0;
-                    engineState.timer = getRemainingSeconds(phaseDeadline);
+
+                    if (!phaseDeadline) {
+                        const legacySeconds = Number(data.timer);
+                        if (Number.isFinite(legacySeconds) && legacySeconds > 0) {
+                            // Temporary display while Firebase repairs the room.
+                            // The transaction below persists the real deadline.
+                            phaseDeadline = getServerNow() + legacySeconds * 1000;
+                            engineState.timer = legacySeconds;
+                        } else {
+                            engineState.timer = 0;
+                        }
+
+                        initializeSelectionDeadline();
+                    } else {
+                        engineState.timer = getRemainingSeconds(phaseDeadline);
+                    }
                 } else if (engineState.gamePhase === 'results') {
                     phaseDeadline = Number(data.resultsEndsAt) || 0;
                     engineState.timer = getRemainingSeconds(phaseDeadline);
