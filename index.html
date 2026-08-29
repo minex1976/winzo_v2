@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Winzo · Bingo V3</title>
+    <title>Winzo · Bingo</title>
 
     <script src="https://telegram.org/js/telegram-web-app.js">
     </script>
@@ -1268,8 +1268,14 @@
             background: rgba(40, 80, 120, 0.6);
         }
         @keyframes slideUp {
-            from { transform: translateX(-50%) translateY(20px); opacity: 0; }
-            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+            from {
+                transform: translateX(-50%) translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
         }
 
         /* ===== Welcome Toast ===== */
@@ -1309,8 +1315,14 @@
             line-height: 1.4;
         }
         @keyframes slideDown {
-            from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
-            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+            from {
+                transform: translateX(-50%) translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
         }
 
         /* ===== Fireworks Canvas ===== */
@@ -1670,33 +1682,99 @@
     <canvas id="fireworksCanvas"></canvas>
 
     <!-- ============================================================ -->
-    <!-- JAVASCRIPT – COMPLETE WITH SPIN ON TIMER 0                 -->
+    <!-- JAVASCRIPT – COMPLETE WITH FIXED TIMER                     -->
     <!-- ============================================================ -->
     <script>
         // ============================================================
-        //  AUDIO PLACEHOLDERS – Replace with your base64 audio data
+        //  AUDIO – Web Audio API (no external files needed)
         // ============================================================
-        const GET_READY_AUDIO = "data:audio/wav;base64,YOUR_GET_READY_AUDIO_BASE64_HERE";
-        const WINNING_AUDIO = "data:audio/wav;base64,YOUR_WINNING_AUDIO_BASE64_HERE";
-        const NO_WINNER_AUDIO = "data:audio/wav;base64,YOUR_NO_WINNER_AUDIO_BASE64_HERE";
+        let audioCtx = null;
+        let audioInitialized = false;
 
-        function playAudio(audioData) {
-            if (!audioData || audioData.includes('YOUR_') || audioData === "data:audio/wav;base64,YOUR_NO_WINNER_AUDIO_BASE64_HERE") return;
-            try {
-                const audio = new Audio(audioData);
-                audio.volume = 0.8;
-                audio.play().catch(e => console.log('Audio play error:', e));
-            } catch (e) { console.log('Audio error:', e); }
+        function initAudio() {
+            if (!audioInitialized) {
+                try {
+                    audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                    audioInitialized = true;
+                } catch (e) {
+                    console.log('Web Audio not supported:', e);
+                }
+            }
+            return audioCtx;
         }
-        function playGetReadyAudio() { playAudio(GET_READY_AUDIO); }
-        function playWinningAudio() { playAudio(WINNING_AUDIO); }
-        function playNoWinnerAudio() { playAudio(NO_WINNER_AUDIO); }
+
+        document.addEventListener('click', function resumeAudio() {
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
+        }, { once: false });
+
+        function playTone(freq, duration, type = 'sine', volume = 0.30, delay = 0) {
+            const ctx = initAudio();
+            if (!ctx) return;
+            if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+            }
+            try {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+                gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+                gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + delay + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + duration);
+            } catch (e) {
+                // silently fail
+            }
+        }
+
+        function playGetReadyAudio() {
+            const ctx = initAudio();
+            if (!ctx) return;
+            if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+            playTone(523.25, 0.12, 'sine', 0.30, 0);
+            playTone(659.25, 0.15, 'sine', 0.30, 0.20);
+            playTone(783.99, 0.10, 'sine', 0.12, 0.10);
+        }
+
+        function playWinningAudio() {
+            const ctx = initAudio();
+            if (!ctx) return;
+            if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            const durations = [0.20, 0.20, 0.25, 0.35];
+            const volumes = [0.28, 0.28, 0.28, 0.26];
+            notes.forEach((freq, i) => {
+                const delay = i * 0.16;
+                playTone(freq, durations[i], 'sine', volumes[i], delay);
+            });
+            playTone(1318.51, 0.20, 'sine', 0.10, 0.55);
+            playTone(1567.98, 0.15, 'sine', 0.07, 0.70);
+        }
+
+        function playNoWinnerAudio() {
+            const ctx = initAudio();
+            if (!ctx) return;
+            if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+            const notes = [783.99, 659.25, 523.25];
+            const durations = [0.22, 0.22, 0.28];
+            const volumes = [0.22, 0.22, 0.20];
+            notes.forEach((freq, i) => {
+                const delay = i * 0.20;
+                playTone(freq, durations[i], 'sine', volumes[i], delay);
+            });
+            playTone(392.00, 0.25, 'sine', 0.08, 0.50);
+        }
 
         // ============================================================
         //  FIREWORKS EFFECT
         // ============================================================
         const canvas = document.getElementById('fireworksCanvas');
-        const ctx = canvas.getContext('2d');
+        const ctx2 = canvas.getContext('2d');
         let fireworks = [];
         let particles = [];
         let fireworksRunning = false;
@@ -1763,19 +1841,19 @@
                 if (this.exploded) return;
                 for (let i = 0; i < this.trail.length; i++) {
                     const alpha = i / this.trail.length;
-                    ctx.beginPath();
-                    ctx.arc(this.trail[i].x, this.trail[i].y, this.size * alpha * 0.8, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(255, 200, 100, ${alpha * 0.6})`;
-                    ctx.fill();
+                    ctx2.beginPath();
+                    ctx2.arc(this.trail[i].x, this.trail[i].y, this.size * alpha * 0.8, 0, Math.PI * 2);
+                    ctx2.fillStyle = `rgba(255, 200, 100, ${alpha * 0.6})`;
+                    ctx2.fill();
                 }
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = '#fff';
-                ctx.fill();
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = '#f5c542';
-                ctx.fill();
-                ctx.shadowBlur = 0;
+                ctx2.beginPath();
+                ctx2.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx2.fillStyle = '#fff';
+                ctx2.fill();
+                ctx2.shadowBlur = 20;
+                ctx2.shadowColor = '#f5c542';
+                ctx2.fill();
+                ctx2.shadowBlur = 0;
             }
         }
 
@@ -1793,24 +1871,24 @@
                     continue;
                 }
                 const alpha = p.life;
-                ctx.globalAlpha = alpha;
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-                ctx.fillStyle = p.color;
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.globalAlpha = 1;
+                ctx2.globalAlpha = alpha;
+                ctx2.shadowBlur = 10;
+                ctx2.shadowColor = p.color;
+                ctx2.beginPath();
+                ctx2.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                ctx2.fillStyle = p.color;
+                ctx2.fill();
+                ctx2.shadowBlur = 0;
+                ctx2.globalAlpha = 1;
             }
         }
 
         function animateFireworks() {
             if (!fireworksRunning) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx2.clearRect(0, 0, canvas.width, canvas.height);
                 return;
             }
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx2.clearRect(0, 0, canvas.width, canvas.height);
 
             if (Math.random() < 0.08 && fireworks.length < 6) {
                 fireworks.push(new Firework());
@@ -1860,7 +1938,7 @@
                 clearTimeout(fireworksAutoStopTimer);
                 fireworksAutoStopTimer = null;
             }
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx2.clearRect(0, 0, canvas.width, canvas.height);
             fireworks = [];
             particles = [];
         }
@@ -1967,7 +2045,7 @@
         // ============================================================
         //  LOCAL DB – clear all data on logout
         // ============================================================
-        const APP_VERSION = '2.3';
+        const APP_VERSION = '2.5';
         const DB = {
             getCurrentUser() { return localStorage.getItem('bingo_current_user') || null; },
             setCurrentUser(username) {
@@ -2016,7 +2094,7 @@
         let currentUser = null;
         let gameRef = null;
         let isGameInitialized = false;
-        let currentBet = 15;
+        let currentBet = 10;
         let currentRoom = 'room_10';
         let walletData = { main: 0, play: 0, pending: 0 };
 
@@ -2351,7 +2429,7 @@
             const savedBet = DB.getSavedBet();
             if (savedBet && firebaseAvailable) {
                 currentBet = savedBet;
-                currentRoom = savedBet === 15 ? 'room_10' : 'room_20';
+                currentRoom = savedBet === 10 ? 'room_10' : 'room_20';
                 showGameScreen();
                 initGameConnection();
             }
@@ -2382,7 +2460,7 @@
         }
 
         function updateBetSwitcher() {
-            if (currentBet === 15) {
+            if (currentBet === 10) {
                 switchBet10.classList.add('active');
                 switchBet20.classList.remove('active');
             } else {
@@ -2749,15 +2827,18 @@
         let serverTimeOffset = 0;
         let phaseDeadline = 0;
         const SELECTION_SECONDS = 30;
+
         function getServerNow() { return Date.now() + serverTimeOffset; }
+
         function getRemainingSeconds(deadline) {
-            return Number(deadline) ? Math.max(0, Math.ceil((Number(deadline)-getServerNow())/1000)) : 0;
+            return Number(deadline) ? Math.max(0, Math.ceil((Number(deadline) - getServerNow()) / 1000)) : 0;
         }
+
         function ensureSelectionDeadline() {
             if (!gameRef || engineState.gamePhase !== 'selection') return;
             gameRef.child('selectionEndsAt').transaction(current => {
                 if (typeof current === 'number' && current > getServerNow()) return current;
-                return getServerNow() + SELECTION_SECONDS*1000;
+                return getServerNow() + SELECTION_SECONDS * 1000;
             });
         }
 
@@ -2771,7 +2852,8 @@
             }
             const roomPath = currentRoom;
             gameRef = database.ref('rooms/' + roomPath);
-            database.ref('.info/serverTimeOffset').once('value').then(snap => { serverTimeOffset = Number(snap.val()) || 0; ensureSelectionDeadline(); });
+            database.ref('.info/serverTimeOffset').once('value').then(snap => { serverTimeOffset = Number(snap.val()) || 0;
+                ensureSelectionDeadline(); });
 
             gameRef.once('value', snapshot => {
                 if (!snapshot.exists()) {
@@ -2779,7 +2861,7 @@
                         gameState: 'selection',
                         round: 1,
                         timer: 30,
-                        selectionEndsAt: getServerNow() + SELECTION_SECONDS*1000,
+                        selectionEndsAt: getServerNow() + SELECTION_SECONDS * 1000,
                         drawnNumbers: [],
                         winners: [],
                         spinCount: 0,
@@ -2823,7 +2905,7 @@
         }
 
         // ============================================================
-        //  SYNC GAME STATE – FIXED: Spin always triggers with 1+ players
+        //  SYNC GAME STATE
         // ============================================================
         function syncGameState(data) {
             if (syncInProgress) return;
@@ -2897,24 +2979,36 @@
                     startTimer();
                 }
 
-                // 🔥 KEY CHANGE: Spin triggers with 1+ players (not 2+)
-                if (engineState.gamePhase === 'selection' && engineState.timer <= 0 && engineState.activePlayersCount >= 1) {
-                    stopTimer();
-                    if (!audioPlayedThisRound) {
-                        playGetReadyAudio();
-                        audioPlayedThisRound = true;
-                    }
-                    setTimeout(() => {
-                        if (gameRef) {
-                            gameRef.update({ gameState: 'spinning' });
+                // Spin triggered by timer (via requestSpin) – the timer itself calls requestSpin when it hits 0.
+                // Also handle the case where the timer already hit 0 in Firebase data.
+                if (engineState.gamePhase === 'selection' && engineState.timer <= 0) {
+                    // The timer has reached 0 – request a spin if not already spinning and at least one player has picked.
+                    const playersWithPick = Object.keys(engineState.players).filter(name => {
+                        const p = engineState.players[name];
+                        return p && p.pick !== null && p.round === engineState.roundNumber;
+                    });
+                    if (playersWithPick.length > 0) {
+                        // Only trigger if not already triggered (avoid duplicate)
+                        // We can rely on the timer's requestSpin but also catch here if phaseDeadline is old.
+                        // But we'll let requestSpin handle it.
+                        // However, if we get here from sync and timer is 0, we should request spin.
+                        // But to avoid multiple calls, we check if we are already spinning.
+                        if (!engineState.isSpinning && !engineState.spinInProgress) {
+                            // Ensure we stop timer and request spin
+                            stopTimer();
+                            if (!audioPlayedThisRound) {
+                                playGetReadyAudio();
+                                audioPlayedThisRound = true;
+                            }
+                            // Wait a moment then request spin via Firebase
                             setTimeout(() => {
-                                if (engineState.gamePhase === 'spinning' && !engineState.isSpinning && engineState
-                                    .spinCount === 0) {
-                                    executeSpin();
-                                }
-                            }, 1000);
+                                requestSpin();
+                            }, 500);
                         }
-                    }, 1000);
+                    } else {
+                        // No players picked – reset the round.
+                        gameRef.update({ gameState: 'selection', timer: 30, selectionEndsAt: getServerNow() + SELECTION_SECONDS * 1000 });
+                    }
                 }
 
                 if (engineState.gamePhase === 'results' && !isResultsCountdownRunning) {
@@ -2923,6 +3017,25 @@
             } finally {
                 syncInProgress = false;
             }
+        }
+
+        // ============================================================
+        //  REQUEST SPIN (new helper)
+        // ============================================================
+        function requestSpin() {
+            if (!gameRef || engineState.gamePhase !== 'selection') return;
+            // Only spin if at least one player (including self) has picked a number
+            const playersWithPick = Object.keys(engineState.players).filter(name => {
+                const p = engineState.players[name];
+                return p && p.pick !== null && p.round === engineState.roundNumber;
+            });
+            if (playersWithPick.length === 0) {
+                // No one picked – restart the round
+                gameRef.update({ gameState: 'selection', timer: 30, selectionEndsAt: getServerNow() + SELECTION_SECONDS * 1000 });
+                return;
+            }
+            // Update Firebase to spinning – this will trigger executeSpin on all clients
+            gameRef.update({ gameState: 'spinning' });
         }
 
         // ============================================================
@@ -2943,7 +3056,7 @@
         };
 
         // ============================================================
-        //  TIMER
+        //  TIMER (FIXED)
         // ============================================================
         function startTimer() {
             if (timerInterval) clearInterval(timerInterval);
@@ -2955,7 +3068,11 @@
                 const remaining = getRemainingSeconds(phaseDeadline);
                 engineState.timer = remaining;
                 timerDisplay.textContent = remaining;
-                if (remaining <= 0) { stopTimer(); attemptStartSpin(); }
+                if (remaining <= 0) {
+                    stopTimer();
+                    // Call requestSpin to trigger the spin via Firebase
+                    requestSpin();
+                }
             };
             tick();
             timerInterval = setInterval(tick, 250);
@@ -2987,7 +3104,7 @@
                             gameState: 'selection',
                             round: engineState.roundNumber + 1,
                             timer: 30,
-                            selectionEndsAt: getServerNow() + SELECTION_SECONDS*1000,
+                            selectionEndsAt: getServerNow() + SELECTION_SECONDS * 1000,
                             drawnNumbers: [],
                             winners: [],
                             spinCount: 0,
@@ -3167,7 +3284,8 @@
                 newPick = null;
             }
             if (!engineState.players[currentUser]) {
-                engineState.players[currentUser] = { name: currentUser, pick: null, bet: bet, ready: false, betDeducted: false, round: engineState.roundNumber };
+                engineState.players[currentUser] = { name: currentUser, pick: null, bet: bet, ready: false,
+                    betDeducted: false, round: engineState.roundNumber };
             }
             engineState.players[currentUser].pick = newPick;
             const isReady = newPick !== null;
@@ -3258,7 +3376,6 @@
             try {
                 const numbers = Array.from(engineState.allTakenNumbers);
                 if (numbers.length === 0) {
-                    // No numbers – void round
                     updateStatus('❌ No numbers chosen!');
                     gameRef.update({ gameState: 'results', timer: 5 });
                     engineState.isSpinning = false;
@@ -3268,7 +3385,6 @@
                 }
 
                 if (numbers.length < 2) {
-                    // Only 1 player – the wheel still spins, but round is void
                     const winningNumber = numbers[Math.floor(Math.random() * numbers.length)];
                     const targetAngle = getAngleForNumber(winningNumber);
                     const fullRotations = 4 + Math.floor(Math.random() * 2);
@@ -3402,12 +3518,12 @@
             const winners = engineState.winners || [];
             const winningNumber = engineState.drawnNumbers[0] || '?';
             winnersList.innerHTML = `
-                <div style="padding:20px;text-align:center;">
-                    <div style="font-size:2rem;margin-bottom:8px;">😔</div>
-                    <div style="color:#f5d76e;font-weight:600;">Only one player – no game this round.</div>
-                    <div style="color:#8ab0c8;font-size:0.8rem;margin-top:4px;">Winning number: ${winningNumber}</div>
-                </div>
-            `;
+                    <div style="padding:20px;text-align:center;">
+                        <div style="font-size:2rem;margin-bottom:8px;">😔</div>
+                        <div style="color:#f5d76e;font-weight:600;">Only one player – no game this round.</div>
+                        <div style="color:#8ab0c8;font-size:0.8rem;margin-top:4px;">Winning number: ${winningNumber}</div>
+                    </div>
+                `;
             winnersModal.classList.add('active');
             playNoWinnerAudio();
             setTimeout(() => {
@@ -3461,11 +3577,11 @@
                     let html = '';
                     winners.forEach(name => {
                         html += `
-                            <div class="winner-entry">
-                                <span class="player-name">${name}</span>
-                                <span class="winning-nums">🎯 ${winningNumber} · ${winAmount} Birr</span>
-                            </div>
-                        `;
+                                <div class="winner-entry">
+                                    <span class="player-name">${name}</span>
+                                    <span class="winning-nums">🎯 ${winningNumber} · ${winAmount} Birr</span>
+                                </div>
+                            `;
                     });
                     winnersList.innerHTML = html;
                 }
@@ -3631,7 +3747,6 @@
                 tg.BackButton.show();
             }
 
-            // Never auto-login from a saved session. Recall credentials only.
             currentUser = null;
             showAuthScreen();
         }
