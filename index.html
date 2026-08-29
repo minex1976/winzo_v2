@@ -1682,7 +1682,7 @@
     <canvas id="fireworksCanvas"></canvas>
 
     <!-- ============================================================ -->
-    <!-- JAVASCRIPT – COMPLETE WITH IMMEDIATE DEDUCTION/REFUND      -->
+    <!-- JAVASCRIPT – FIXED WITHDRAWAL LOGIC (approved/rejected)    -->
     <!-- ============================================================ -->
     <script>
         // ============================================================
@@ -2045,7 +2045,7 @@
         // ============================================================
         //  LOCAL DB – clear all data on logout
         // ============================================================
-        const APP_VERSION = '2.7';
+        const APP_VERSION = '2.8';
         const DB = {
             getCurrentUser() { return localStorage.getItem('bingo_current_user') || null; },
             setCurrentUser(username) {
@@ -2284,7 +2284,7 @@
         }
 
         // ============================================================
-        //  TRANSACTION SYSTEM
+        //  TRANSACTION SYSTEM – FIXED: proper approval/rejection with wallet update
         // ============================================================
         function requestTransaction(type, amount) {
             if (!currentUser) return false;
@@ -2310,19 +2310,69 @@
                 const listener = txRef.on('value', snapshot => {
                     const data = snapshot.val();
                     if (!data) return;
+
                     if (data.status === 'approved') {
+                        // Approval: clear only the pending amount (main already deducted during withdrawal request)
+                        const userRef = database.ref('users/' + data.username);
+                        userRef.transaction(current => {
+                            if (current) {
+                                const pending = current.pendingWithdrawal || 0;
+                                const amt = data.amount || 0;
+                                current.pendingWithdrawal = Math.max(0, pending - amt);
+                            }
+                            return current;
+                        }, (error, committed, snap) => {
+                            if (error) {
+                                console.error('Error updating pending on approval:', error);
+                            } else if (committed && snap) {
+                                // Update walletData from the snapshot to ensure consistency
+                                const updated = snap.val();
+                                walletData.main = updated.mainWallet || 0;
+                                walletData.play = updated.playWallet || 0;
+                                walletData.pending = updated.pendingWithdrawal || 0;
+                                updateWalletUI();
+                                updateWelcomeUI();
+                            }
+                        });
+
                         transactionStatus.textContent = '✅ Approved! Transaction completed.';
                         transactionStatus.className = 'status-text approved';
                         setTimeout(() => {
                             transactionModal.classList.remove('active');
                         }, 2000);
                     } else if (data.status === 'rejected') {
-                        transactionStatus.textContent = '❌ Rejected by admin.';
+                        // Rejection: refund the amount back to main wallet and clear pending
+                        const userRef = database.ref('users/' + data.username);
+                        userRef.transaction(current => {
+                            if (current) {
+                                const pending = current.pendingWithdrawal || 0;
+                                const amt = data.amount || 0;
+                                // Refund: add back to main, subtract from pending
+                                current.mainWallet = (current.mainWallet || 0) + amt;
+                                current.pendingWithdrawal = Math.max(0, pending - amt);
+                            }
+                            return current;
+                        }, (error, committed, snap) => {
+                            if (error) {
+                                console.error('Error refunding on rejection:', error);
+                            } else if (committed && snap) {
+                                // Update walletData from the snapshot
+                                const updated = snap.val();
+                                walletData.main = updated.mainWallet || 0;
+                                walletData.play = updated.playWallet || 0;
+                                walletData.pending = updated.pendingWithdrawal || 0;
+                                updateWalletUI();
+                                updateWelcomeUI();
+                            }
+                        });
+
+                        transactionStatus.textContent = '❌ Rejected by admin. Amount refunded.';
                         transactionStatus.className = 'status-text rejected';
                         setTimeout(() => {
                             transactionModal.classList.remove('active');
                         }, 2000);
                     }
+
                     if (data.status !== 'pending') {
                         txRef.off();
                         delete transactionListeners[txRef.key];
