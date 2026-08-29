@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Winzo · Bingo V2</title>
+    <title>Winzo · Bingo V3</title>
 
     <script src="https://telegram.org/js/telegram-web-app.js">
     </script>
@@ -1499,17 +1499,13 @@
         <!-- ===== AUTH SCREEN ===== -->
         <div id="authScreen" class="auth-screen">
             <div class="logo"><h2>🎯 <span>WINZO</span></h2></div>
-            <div class="subtitle">Bet 15 or 30 Birr</div>
+            <div class="subtitle">Bet 10 or 20 Birr</div>
             <div id="authError" class="auth-error"></div>
             <div class="telegram-info" id="telegramInfo">📱 Detecting Telegram user...</div>
             <input type="text" id="authUsername" placeholder="Username" maxlength="20" autocomplete="username">
             <input type="password" id="authPassword" placeholder="Password" minlength="4" autocomplete="current-password">
-            <div style="text-align:center;color:#8ab0c8;font-size:.68rem;margin-top:-6px;">Remembered on this device after a successful login.</div>
             <button class="auth-btn" id="authLoginBtn">Login</button>
             <button class="auth-btn auth-btn-secondary" id="authSignupBtn">Sign Up</button>
-            <div style="text-align:center;color:#8ab0c8;font-size:0.72rem;margin-top:8px;">
-                Telegram detection only fills your username. Press Login to continue.
-            </div>
             <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
                 <span class="connection-status offline" id="authStatus">⚡ Offline</span>
             </div>
@@ -1522,8 +1518,8 @@
                 <div style="color:#8ab0c8;font-size:0.8rem;letter-spacing:1px;margin-top:4px;">Choose your bet amount</div>
             </div>
             <div class="bet-options">
-                <button id="bet15Btn">15 <span class="label">Birr</span></button>
-                <button id="bet30Btn">30 <span class="label">Birr</span></button>
+                <button id="bet10Btn">10 <span class="label">Birr</span></button>
+                <button id="bet20Btn">20 <span class="label">Birr</span></button>
             </div>
             <div class="wallet-info">Play balance: <span class="amount" id="welcomeBalance">0</span> Birr</div>
             <div style="display:flex;gap:8px;margin-top:4px;">
@@ -1534,8 +1530,8 @@
 
         <!-- ===== GAME SCREEN ===== -->
         <div id="gameScreen">
-            <div class="title">✨ <span style="color:#f5c542;">WINZO</span> · <small id="modeLabel">15 Birr</small></div>
-            <div style="text-align:center;"><span class="room-badge" id="gameRoomBadge">💰 Bet: 15 Birr</span></div>
+            <div class="title">✨ <span style="color:#f5c542;">WINZO</span> · <small id="modeLabel">10 Birr</small></div>
+            <div style="text-align:center;"><span class="room-badge" id="gameRoomBadge">💰 Bet: 10 Birr</span></div>
 
             <div class="wallet-bar">
                 <div class="wallet-left">
@@ -1563,8 +1559,8 @@
 
             <div class="bet-switcher">
                 <span class="label">🎯 Bet:</span>
-                <button class="bet-btn active" id="switchBet15">15 Birr</button>
-                <button class="bet-btn" id="switchBet30">30 Birr</button>
+                <button class="bet-btn active" id="switchBet10">10 Birr</button>
+                <button class="bet-btn" id="switchBet20">20 Birr</button>
             </div>
 
             <div class="game-info-bar">
@@ -1594,7 +1590,7 @@
             </div>
 
             <div class="status-area" id="statusMessage">
-                <span>⏳ Pick one number · Bet: <span class="highlight" id="betDisplay">15</span> Birr</span>
+                <span>⏳ Pick one number · Bet: <span class="highlight" id="betDisplay">10</span> Birr</span>
             </div>
 
             <div class="profile-area">
@@ -1900,10 +1896,9 @@
                         const infoEl = document.getElementById('telegramInfo');
                         if (infoEl) {
                             if (name) {
-                                infoEl.textContent = '✅ Telegram detected: @' + name + ' — review username and press Login.';
+                                infoEl.textContent = '✅ Detected Telegram: @' + name;
                                 infoEl.className = 'telegram-info detected';
                                 document.getElementById('authUsername').value = name;
-                                document.getElementById('authPassword').focus();
                             } else {
                                 infoEl.textContent = '📱 Telegram detected (no username). Enter manually.';
                                 infoEl.className = 'telegram-info not-detected';
@@ -1962,7 +1957,7 @@
             database = firebase.database();
             firebaseAvailable = true;
             isMultiplayer = true;
-            console.log('✅ Firebase ready (solve-527f4)');
+            console.log('✅ Firebase ready (renewed-8fe38)');
         } catch (e) {
             console.warn('⚠️ Firebase init error:', e);
             firebaseAvailable = false;
@@ -1972,7 +1967,7 @@
         // ============================================================
         //  LOCAL DB – clear all data on logout
         // ============================================================
-        const APP_VERSION = '2.2';
+        const APP_VERSION = '2.3';
         const DB = {
             getCurrentUser() { return localStorage.getItem('bingo_current_user') || null; },
             setCurrentUser(username) {
@@ -1980,11 +1975,7 @@
                 else localStorage.removeItem('bingo_current_user');
             },
             getSavedCredentials() {
-                try {
-                    return JSON.parse(localStorage.getItem('bingo_saved_credentials') || 'null');
-                } catch {
-                    return null;
-                }
+                try { return JSON.parse(localStorage.getItem('bingo_saved_credentials') || 'null'); } catch { return null; }
             },
             setSavedCredentials(username, password) {
                 localStorage.setItem('bingo_saved_credentials', JSON.stringify({ username, password }));
@@ -2025,21 +2016,8 @@
         let currentUser = null;
         let gameRef = null;
         let isGameInitialized = false;
-        const SELECTION_SECONDS = 30;
-        const RESULTS_SECONDS = 5;
-
-        // V2 keeps the existing Firebase room data/schema. The logical
-        // betting amounts are now 15 and 30 Birr, mapped to the existing
-        // room nodes so historical Firebase data is not discarded.
-        const ROOM_BY_BET = {
-            15: 'room_10',
-            30: 'room_20'
-        };
-
         let currentBet = 15;
-        let currentRoom = ROOM_BY_BET[15];
-        let serverTimeOffset = 0;
-        let phaseDeadline = 0;
+        let currentRoom = 'room_10';
         let walletData = { main: 0, play: 0, pending: 0 };
 
         let engineState = {
@@ -2051,7 +2029,7 @@
             isSpinning: false,
             gamePhase: 'selection',
             roundNumber: 1,
-            timer: SELECTION_SECONDS,
+            timer: 30,
             activePlayersCount: 0,
             cumulativeRotation: 0,
             playerNames: [],
@@ -2100,14 +2078,14 @@
         const authStatus = $('authStatus');
         const telegramInfo = $('telegramInfo');
 
-        const bet15Btn = $('bet15Btn');
-        const bet30Btn = $('bet30Btn');
+        const bet10Btn = $('bet10Btn');
+        const bet20Btn = $('bet20Btn');
         const welcomeBalance = $('welcomeBalance');
         const welcomeLogoutBtn = $('welcomeLogoutBtn');
         const welcomeDepositBtn = $('welcomeDepositBtn');
 
-        const switchBet15 = $('switchBet15');
-        const switchBet30 = $('switchBet30');
+        const switchBet10 = $('switchBet10');
+        const switchBet20 = $('switchBet20');
 
         const walletUsername = $('walletUsername');
         const mainWalletEl = $('mainWallet');
@@ -2352,19 +2330,13 @@
             authError.textContent = '';
             setConnectionStatus(firebaseAvailable, firebaseAvailable ? '🌐 Connected' : '📡 Offline');
             DB.setSavedBet(null);
+            const savedCredentials = DB.getSavedCredentials();
+            if (savedCredentials?.username) authUsername.value = savedCredentials.username;
+            if (savedCredentials?.password) authPassword.value = savedCredentials.password;
             if (userWalletRef) { userWalletRef.off();
                 userWalletRef = null; }
             if (pendingTxListener) { pendingTxListener.off();
                 pendingTxListener = null; }
-
-            // Recall the last successful credentials into the form.
-            // This does NOT authenticate automatically.
-            const savedCredentials = DB.getSavedCredentials();
-            if (savedCredentials?.username) {
-                authUsername.value = savedCredentials.username;
-                authPassword.value = savedCredentials.password || '';
-            }
-
             attemptTelegramDetection();
         }
 
@@ -2377,10 +2349,9 @@
             stopResultsCountdown();
             audioPlayedThisRound = false;
             const savedBet = DB.getSavedBet();
-            if (firebaseAvailable) {
-                const normalizedBet = savedBet === 30 ? 30 : 15;
-                currentBet = normalizedBet;
-                currentRoom = ROOM_BY_BET[normalizedBet];
+            if (savedBet && firebaseAvailable) {
+                currentBet = savedBet;
+                currentRoom = savedBet === 15 ? 'room_10' : 'room_20';
                 showGameScreen();
                 initGameConnection();
             }
@@ -2412,11 +2383,11 @@
 
         function updateBetSwitcher() {
             if (currentBet === 15) {
-                switchBet15.classList.add('active');
-                switchBet30.classList.remove('active');
+                switchBet10.classList.add('active');
+                switchBet20.classList.remove('active');
             } else {
-                switchBet30.classList.add('active');
-                switchBet15.classList.remove('active');
+                switchBet20.classList.add('active');
+                switchBet10.classList.remove('active');
             }
         }
 
@@ -2529,8 +2500,8 @@
             clearAllLocalData();
 
             currentUser = null;
-            currentBet = 15;
-            currentRoom = ROOM_BY_BET[15];
+            currentBet = 10;
+            currentRoom = 'room_10';
             isGameInitialized = false;
             audioPlayedThisRound = false;
             syncInProgress = false;
@@ -2545,7 +2516,7 @@
                 isSpinning: false,
                 gamePhase: 'selection',
                 roundNumber: 1,
-                timer: SELECTION_SECONDS,
+                timer: 30,
                 activePlayersCount: 0,
                 cumulativeRotation: 0,
                 playerNames: [],
@@ -2576,7 +2547,7 @@
         //  BET SWITCHER
         // ============================================================
         function switchBet(amount) {
-            if (!currentUser || !ROOM_BY_BET[amount]) return;
+            if (!currentUser) return;
             if (amount === currentBet) return;
             if (walletData.play < amount) {
                 alert(`⚠️ Insufficient play balance (${walletData.play}/${amount}). Deposit to play.`);
@@ -2595,7 +2566,7 @@
             }
             isGameInitialized = false;
             currentBet = amount;
-            currentRoom = ROOM_BY_BET[amount];
+            currentRoom = amount === 10 ? 'room_10' : 'room_20';
             DB.setSavedBet(amount);
             showGameScreen();
             initGameConnection();
@@ -2611,13 +2582,13 @@
         }
 
         function selectBet(amount) {
-            if (!currentUser || !ROOM_BY_BET[amount]) return;
+            if (!currentUser) return;
             if (walletData.play < amount) {
                 alert('⚠️ Insufficient play balance. Please deposit.');
                 return;
             }
             currentBet = amount;
-            currentRoom = ROOM_BY_BET[amount];
+            currentRoom = amount === 10 ? 'room_10' : 'room_20';
             DB.setSavedBet(amount);
             showGameScreen();
             initGameConnection();
@@ -2775,111 +2746,18 @@
         // ============================================================
         //  GAME CONNECTION
         // ============================================================
-        function getServerNow() {
-            return Date.now() + serverTimeOffset;
-        }
-
+        let serverTimeOffset = 0;
+        let phaseDeadline = 0;
+        const SELECTION_SECONDS = 30;
+        function getServerNow() { return Date.now() + serverTimeOffset; }
         function getRemainingSeconds(deadline) {
-            // A missing deadline must never mean "30 seconds forever".
-            // Legacy rooms are repaired by initializeSelectionDeadline().
-            if (!Number(deadline)) return 0;
-            return Math.max(0, Math.ceil((Number(deadline) - getServerNow()) / 1000));
+            return Number(deadline) ? Math.max(0, Math.ceil((Number(deadline)-getServerNow())/1000)) : 0;
         }
-
-        function initializeSelectionDeadline() {
-            if (!gameRef) return;
-            gameRef.transaction(current => {
-                if (!current) return current;
-                if (current.gameState === 'selection' && !Number(current.selectionEndsAt)) {
-                    const existingTimer = Number(current.timer);
-                    const seconds = Number.isFinite(existingTimer) && existingTimer > 0
-                        ? existingTimer
-                        : SELECTION_SECONDS;
-                    current.selectionEndsAt = getServerNow() + seconds * 1000;
-                    current.timer = seconds;
-                }
-                return current;
-            });
-        }
-
-        function attemptStartSpin() {
+        function ensureSelectionDeadline() {
             if (!gameRef || engineState.gamePhase !== 'selection') return;
-            if (engineState.activePlayersCount < 1) {
-                initializeSelectionDeadline();
-                return;
-            }
-            if (!phaseDeadline) {
-                initializeSelectionDeadline();
-                return;
-            }
-
-            if (getRemainingSeconds(phaseDeadline) > 0) return;
-
-            gameRef.transaction(current => {
-                if (!current || current.gameState !== 'selection') return current;
-                const deadline = Number(current.selectionEndsAt) || 0;
-                if (deadline && getServerNow() < deadline) return current;
-                const players = current.players || {};
-                const round = Number(current.round) || 1;
-                const pickedNumbers = Object.keys(players)
-                    .map(name => players[name])
-                    .filter(player => player && player.pick !== null && player.pick !== undefined && Number(player.round) === round)
-                    .map(player => Number(player.pick))
-                    .filter(Number.isFinite);
-                const uniqueNumbers = [...new Set(pickedNumbers)];
-
-                current.gameState = 'spinning';
-                current.timer = 5;
-                current.spinStartedAt = getServerNow();
-                current.spinOutcome = uniqueNumbers.length === 0
-                    ? 'no_picks'
-                    : (uniqueNumbers.length === 1 ? 'no_winner' : 'winner');
-                current.spinWinningNumber = uniqueNumbers.length > 0
-                    ? uniqueNumbers[Math.floor(Math.random() * uniqueNumbers.length)]
-                    : null;
-                current.spinNumberCount = uniqueNumbers.length;
-                return current;
-            }, (error, committed) => {
-                if (error) handleError(error, 'Start spin');
-            });
-        }
-
-        function attemptStartNextRound() {
-            if (!gameRef || engineState.gamePhase !== 'results') return;
-            if (getRemainingSeconds(phaseDeadline) > 0) return;
-
-            gameRef.transaction(current => {
-                if (!current || current.gameState !== 'results') return current;
-                const deadline = Number(current.resultsEndsAt) || 0;
-                if (deadline && getServerNow() < deadline) return current;
-
-                const nextRound = (Number(current.round) || 1) + 1;
-                const players = current.players || {};
-                Object.keys(players).forEach(name => {
-                    players[name].pick = null;
-                    players[name].ready = false;
-                    players[name].betDeducted = false;
-                    players[name].round = null;
-                    players[name].bet = current.betAmount || currentBet;
-                });
-
-                current.gameState = 'selection';
-                current.round = nextRound;
-                current.timer = SELECTION_SECONDS;
-                current.selectionEndsAt = getServerNow() + SELECTION_SECONDS * 1000;
-                delete current.resultsEndsAt;
-                delete current.spinOwner;
-                delete current.spinStartedAt;
-                current.drawnNumbers = [];
-                current.winners = [];
-                current.spinCount = 0;
-                current.cumulativeRotation = 0;
-                current.potAmount = 0;
-                current.totalBets = 0;
-                current.players = players;
-                return current;
-            }, (error) => {
-                if (error) handleError(error, 'Start next round');
+            gameRef.child('selectionEndsAt').transaction(current => {
+                if (typeof current === 'number' && current > getServerNow()) return current;
+                return getServerNow() + SELECTION_SECONDS*1000;
             });
         }
 
@@ -2891,28 +2769,17 @@
                 }
                 isGameInitialized = false;
             }
-
             const roomPath = currentRoom;
             gameRef = database.ref('rooms/' + roomPath);
-
-            database.ref('.info/serverTimeOffset').once('value').then(snapshot => {
-                serverTimeOffset = Number(snapshot.val()) || 0;
-            }).catch(() => {
-                serverTimeOffset = 0;
-            }).finally(() => {
-                // After the Firebase server clock is known, repair any
-                // legacy selection room that has timer=30 but no deadline.
-                initializeSelectionDeadline();
-            });
+            database.ref('.info/serverTimeOffset').once('value').then(snap => { serverTimeOffset = Number(snap.val()) || 0; ensureSelectionDeadline(); });
 
             gameRef.once('value', snapshot => {
                 if (!snapshot.exists()) {
-                    const now = getServerNow();
                     const initData = {
                         gameState: 'selection',
                         round: 1,
-                        timer: SELECTION_SECONDS,
-                        selectionEndsAt: now + SELECTION_SECONDS * 1000,
+                        timer: 30,
+                        selectionEndsAt: getServerNow() + SELECTION_SECONDS*1000,
                         drawnNumbers: [],
                         winners: [],
                         spinCount: 0,
@@ -2921,35 +2788,14 @@
                         gameStarted: true,
                         betAmount: currentBet,
                         potAmount: 0,
-                        totalBets: 0,
-                        appVersion: APP_VERSION
+                        totalBets: 0
                     };
                     gameRef.set(initData);
                 } else {
-                    // Existing Firebase data is retained. V2 only adds missing
-                    // timing/version fields; it does not delete or recreate rooms.
                     const data = snapshot.val();
-                    gameRef.update({
-                        betAmount: currentBet,
-                        appVersion: APP_VERSION
-                    });
                     if (data.gameState === 'spinning' && data.spinCount === 0 && !data.winners) {
-                        const spinAge = getServerNow() - (Number(data.spinStartedAt) || 0);
-                        if (spinAge > 15000) {
-                            gameRef.update({
-                                gameState: 'selection',
-                                timer: SELECTION_SECONDS,
-                                selectionEndsAt: getServerNow() + SELECTION_SECONDS * 1000,
-                                spinOwner: null,
-                                spinStartedAt: null
-                            });
-                        }
-                    } else if (data.gameState === 'selection' && !Number(data.selectionEndsAt)) {
-                        initializeSelectionDeadline();
-                    } else if (data.gameState === 'results' && !Number(data.resultsEndsAt)) {
-                        gameRef.update({
-                            resultsEndsAt: getServerNow() + RESULTS_SECONDS * 1000
-                        });
+                        console.warn('Room was stuck in spinning with no progress. Resetting.');
+                        gameRef.update({ gameState: 'selection', timer: 30 });
                     }
                 }
             });
@@ -2957,10 +2803,9 @@
             gameRef.on('value', snapshot => {
                 if (syncInProgress) return;
                 const data = snapshot.val();
-                if (data) syncGameState(data);
-            }, error => {
-                console.error('❌ Firebase room listener error:', error);
-                setConnectionStatus(false, '❌ Firebase connection error');
+                if (data) {
+                    syncGameState(data);
+                }
             });
 
             gameRef.child('players/' + currentUser).onDisconnect().remove();
@@ -2974,9 +2819,8 @@
             });
 
             isGameInitialized = true;
-            setConnectionStatus(true, '🔑 V2 · ' + currentBet + ' Birr room');
+            setConnectionStatus(true, '🔑 Connected to ' + currentBet + ' Birr room');
         }
-
 
         // ============================================================
         //  SYNC GAME STATE – FIXED: Spin always triggers with 1+ players
@@ -2993,6 +2837,9 @@
                 engineState.playerNames = playerNames;
                 engineState.gamePhase = data.gameState || 'selection';
                 engineState.roundNumber = data.round || 1;
+                engineState.timer = data.timer || 30;
+                phaseDeadline = Number(data.selectionEndsAt) || 0;
+                if (engineState.gamePhase === 'selection' && !phaseDeadline) ensureSelectionDeadline();
                 engineState.drawnNumbers = data.drawnNumbers || [];
                 engineState.winners = data.winners || [];
                 engineState.spinCount = data.spinCount || 0;
@@ -3000,25 +2847,6 @@
                 engineState.activePlayersCount = playerNames.length;
                 engineState.gameStarted = data.gameStarted || true;
                 engineState.potAmount = data.potAmount || 0;
-
-                if (engineState.gamePhase === 'selection') {
-                    phaseDeadline = Number(data.selectionEndsAt) || 0;
-
-                    if (!phaseDeadline) {
-                        const legacySeconds = Number(data.timer);
-                        engineState.timer = Number.isFinite(legacySeconds) && legacySeconds > 0
-                            ? legacySeconds : SELECTION_SECONDS;
-                        initializeSelectionDeadline();
-                    } else {
-                        engineState.timer = getRemainingSeconds(phaseDeadline);
-                    }
-                } else if (engineState.gamePhase === 'results') {
-                    phaseDeadline = Number(data.resultsEndsAt) || 0;
-                    engineState.timer = getRemainingSeconds(phaseDeadline);
-                } else {
-                    phaseDeadline = 0;
-                    engineState.timer = Number(data.timer) || 0;
-                }
 
                 const allTaken = new Set();
                 playerNames.forEach(name => {
@@ -3031,6 +2859,7 @@
                 });
                 engineState.allTakenNumbers = allTaken;
 
+                const myPick = (players[currentUser] && players[currentUser].pick) || null;
                 const myBet = (players[currentUser] && players[currentUser].bet) || currentBet;
                 engineState.userBetAmount = myBet;
 
@@ -3039,46 +2868,62 @@
 
                 const nowSinglePlayer = engineState.activePlayersCount === 1 && engineState.gamePhase === 'selection';
                 if (nowSinglePlayer) {
-                    if (!engineState.waitingModalShown) showWaitingModal();
-                } else if (engineState.waitingModalShown && engineState.activePlayersCount > 1) {
-                    hideWaitingModal();
-                    updateStatus('🎉 A new player has joined!');
-                    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    if (!engineState.waitingModalShown) {
+                        showWaitingModal();
+                    }
                 } else {
-                    hideWaitingModal();
+                    if (engineState.waitingModalShown && engineState.activePlayersCount > 1) {
+                        hideWaitingModal();
+                        updateStatus('🎉 A new player has joined!');
+                        if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    } else {
+                        hideWaitingModal();
+                    }
                 }
 
                 updateUIFromState();
 
-                // Spin is automatic. No player/client action is required.
-                // Every connected client only renders the same Firebase spin state.
-                if (engineState.gamePhase === 'spinning' && !engineState.isSpinning && !engineState.spinInProgress) {
+                if (engineState.gamePhase === 'spinning' && engineState.spinCount === 0 && !engineState.isSpinning && !engineState
+                    .spinInProgress) {
+                    console.warn('Detected stuck spin. Executing spin now.');
                     setTimeout(() => {
-                        if (engineState.gamePhase === 'spinning' && gameRef) executeSpin();
-                    }, 50);
+                        if (engineState.gamePhase === 'spinning') {
+                            executeSpin();
+                        }
+                    }, 500);
                 }
 
-                if (engineState.gamePhase === 'selection') {
-                    if (phaseDeadline) {
-                        startTimer();
-                    } else {
-                        stopTimer();
-                        initializeSelectionDeadline();
-                    }
-                } else {
+                if (engineState.gamePhase === 'selection' && !isTimerRunning) {
+                    startTimer();
+                }
+
+                // 🔥 KEY CHANGE: Spin triggers with 1+ players (not 2+)
+                if (engineState.gamePhase === 'selection' && engineState.timer <= 0 && engineState.activePlayersCount >= 1) {
                     stopTimer();
+                    if (!audioPlayedThisRound) {
+                        playGetReadyAudio();
+                        audioPlayedThisRound = true;
+                    }
+                    setTimeout(() => {
+                        if (gameRef) {
+                            gameRef.update({ gameState: 'spinning' });
+                            setTimeout(() => {
+                                if (engineState.gamePhase === 'spinning' && !engineState.isSpinning && engineState
+                                    .spinCount === 0) {
+                                    executeSpin();
+                                }
+                            }, 1000);
+                        }
+                    }, 1000);
                 }
 
-                if (engineState.gamePhase === 'results') {
+                if (engineState.gamePhase === 'results' && !isResultsCountdownRunning) {
                     startResultsCountdown();
-                } else {
-                    stopResultsCountdown();
                 }
             } finally {
                 syncInProgress = false;
             }
         }
-
 
         // ============================================================
         //  WAITING MODAL
@@ -3102,32 +2947,16 @@
         // ============================================================
         function startTimer() {
             if (timerInterval) clearInterval(timerInterval);
-            if (engineState.gamePhase !== 'selection' || !gameRef) return;
-            if (!Number(phaseDeadline)) {
-                // Wait for initializeSelectionDeadline() to persist the shared
-                // Firebase deadline instead of treating a missing deadline as 0.
-                initializeSelectionDeadline();
-                return;
-            }
-
+            if (!gameRef || engineState.gamePhase !== 'selection') return;
+            if (!phaseDeadline) { ensureSelectionDeadline(); return; }
             isTimerRunning = true;
-
             const tick = () => {
-                if (engineState.gamePhase !== 'selection' || !gameRef) {
-                    stopTimer();
-                    return;
-                }
-
+                if (engineState.gamePhase !== 'selection') { stopTimer(); return; }
                 const remaining = getRemainingSeconds(phaseDeadline);
                 engineState.timer = remaining;
                 timerDisplay.textContent = remaining;
-
-                if (remaining <= 0) {
-                    stopTimer();
-                    attemptStartSpin();
-                }
+                if (remaining <= 0) { stopTimer(); attemptStartSpin(); }
             };
-
             tick();
             timerInterval = setInterval(tick, 250);
         }
@@ -3140,31 +2969,64 @@
             isTimerRunning = false;
         }
 
-
         // ============================================================
         //  RESULTS COUNTDOWN
         // ============================================================
         function startResultsCountdown() {
-            if (isResultsCountdownRunning || engineState.gamePhase !== 'results') return;
-
+            if (isResultsCountdownRunning) return;
             isResultsCountdownRunning = true;
-            const tick = () => {
-                if (engineState.gamePhase !== 'results') {
+            let countdown = 5;
+            timerDisplay.textContent = countdown;
+            resultsCountdownInterval = setInterval(() => {
+                countdown--;
+                timerDisplay.textContent = countdown;
+                if (countdown <= 0) {
                     stopResultsCountdown();
-                    return;
+                    if (gameRef) {
+                        const updates = {
+                            gameState: 'selection',
+                            round: engineState.roundNumber + 1,
+                            timer: 30,
+                            selectionEndsAt: getServerNow() + SELECTION_SECONDS*1000,
+                            drawnNumbers: [],
+                            winners: [],
+                            spinCount: 0,
+                            cumulativeRotation: 0,
+                            potAmount: 0,
+                            totalBets: 0
+                        };
+                        const playerNames2 = Object.keys(engineState.players);
+                        playerNames2.forEach(name => {
+                            updates['players/' + name + '/pick'] = null;
+                            updates['players/' + name + '/ready'] = false;
+                            updates['players/' + name + '/betDeducted'] = false;
+                            updates['players/' + name + '/round'] = null;
+                        });
+                        gameRef.update(updates);
+
+                        engineState.allTakenNumbers = new Set();
+                        engineState.drawnNumbers = [];
+                        audioPlayedThisRound = false;
+                        arrowContainer.style.transform = 'rotate(0deg)';
+                        arrowCenter.textContent = '🎯';
+                        arrowCenter.classList.remove('reveal');
+                        spinEls.forEach(el => {
+                            el.textContent = '•';
+                            el.classList.remove('active', 'winner', 'reveal');
+                        });
+                        wheelContainer.classList.add('hidden');
+                        spinResults.classList.add('hidden');
+                        updateStatus(`⏳ Round ${engineState.roundNumber + 1}: Pick one number for ${currentBet} Birr`);
+                        engineState.waitingModalShown = false;
+                        updatePrizeDisplay();
+                        timerDisplay.textContent = '30';
+                        if (engineState.activePlayersCount === 1) {
+                            showWaitingModal();
+                        }
+                        stopFireworks();
+                    }
                 }
-
-                engineState.timer = getRemainingSeconds(phaseDeadline);
-                timerDisplay.textContent = engineState.timer;
-
-                if (engineState.timer <= 0) {
-                    stopResultsCountdown();
-                    attemptStartNextRound();
-                }
-            };
-
-            tick();
-            resultsCountdownInterval = setInterval(tick, 250);
+            }, 1000);
         }
 
         function stopResultsCountdown() {
@@ -3175,7 +3037,6 @@
             isResultsCountdownRunning = false;
         }
 
-
         // ============================================================
         //  UI UPDATE
         // ============================================================
@@ -3185,7 +3046,9 @@
             if (updatePending) return;
             updatePending = true;
             requestAnimationFrame(() => {
-                timerDisplay.textContent = engineState.timer;
+                if (!isResultsCountdownRunning) {
+                    timerDisplay.textContent = engineState.timer;
+                }
                 playerCountEl.textContent = engineState.activePlayersCount;
                 const phaseLabels = { 'selection': '⏳ Selecting', 'spinning': '🎡 Spinning', 'results': '🏆 Results' };
                 gamePhaseLabel.textContent = phaseLabels[engineState.gamePhase] || '⏳';
@@ -3379,7 +3242,14 @@
         //  SPIN EXECUTION
         // ============================================================
         function executeSpin() {
-            if (engineState.isSpinning || engineState.gamePhase !== 'spinning' || !gameRef) return;
+            if (engineState.isSpinning) {
+                console.log('Spin already in progress');
+                return;
+            }
+            if (engineState.gamePhase !== 'spinning') {
+                console.log('Not in spinning phase');
+                return;
+            }
 
             engineState.isSpinning = true;
             engineState.spinInProgress = true;
@@ -3387,96 +3257,134 @@
 
             try {
                 const numbers = Array.from(engineState.allTakenNumbers);
-                // The winning number/outcome is decided once in Firebase when
-                // the selection timer expires, so clients cannot disagree.
-                gameRef.once('value').then(snapshot => {
-                    const data = snapshot.val() || {};
-                    const spinOutcome = data.spinOutcome || (numbers.length === 0 ? 'no_picks' : (numbers.length === 1 ? 'no_winner' : 'winner'));
-                    const winningNumber = Number(data.spinWinningNumber);
-                    const hasWinningNumber = Number.isFinite(winningNumber) && winningNumber > 0;
+                if (numbers.length === 0) {
+                    // No numbers – void round
+                    updateStatus('❌ No numbers chosen!');
+                    gameRef.update({ gameState: 'results', timer: 5 });
+                    engineState.isSpinning = false;
+                    engineState.spinInProgress = false;
+                    spinningIndicator.classList.remove('active');
+                    return;
+                }
 
-                    // Animate the wheel only when there is a number to display.
-                    if (hasWinningNumber) {
-                        const targetAngle = getAngleForNumber(winningNumber);
-                        const fullRotations = 4 + Math.floor(Math.random() * 2);
-                        const extraDegrees = 360 * fullRotations + targetAngle;
+                if (numbers.length < 2) {
+                    // Only 1 player – the wheel still spins, but round is void
+                    const winningNumber = numbers[Math.floor(Math.random() * numbers.length)];
+                    const targetAngle = getAngleForNumber(winningNumber);
+                    const fullRotations = 4 + Math.floor(Math.random() * 2);
+                    const extraDegrees = 360 * fullRotations + targetAngle;
 
-                        arrowContainer.style.transition = 'none';
-                        arrowContainer.style.transform = 'rotate(0deg)';
-                        void arrowContainer.offsetHeight;
-                        arrowContainer.style.transition = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
-                        arrowContainer.style.transform = `rotate(${extraDegrees}deg)`;
-                        engineState.cumulativeRotation = extraDegrees;
-                        updateWheel();
+                    arrowContainer.style.transition = 'none';
+                    arrowContainer.style.transform = 'rotate(0deg)';
+                    void arrowContainer.offsetHeight;
 
-                        gameRef.update({
-                            cumulativeRotation: extraDegrees,
-                            spinCount: (Number(data.spinCount) || 0) + 1,
-                            timer: 5
-                        });
-                    } else {
-                        // No picks: still enter the automatic spin phase, then
-                        // finish the round with the requested message.
-                        arrowContainer.style.transition = 'none';
-                        arrowContainer.style.transform = 'rotate(0deg)';
-                        void arrowContainer.offsetHeight;
-                        arrowContainer.style.transition = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
-                        arrowContainer.style.transform = 'rotate(1440deg)';
+                    arrowContainer.style.transition = `transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)`;
+                    arrowContainer.style.transform = `rotate(${extraDegrees}deg)`;
+
+                    engineState.cumulativeRotation = extraDegrees;
+
+                    gameRef.update({
+                        cumulativeRotation: extraDegrees,
+                        spinCount: engineState.spinCount + 1,
+                        timer: 5,
+                        potAmount: 0
+                    });
+
+                    if (spinTimeout) {
+                        clearTimeout(spinTimeout);
+                        spinTimeout = null;
                     }
 
-                    if (spinTimeout) clearTimeout(spinTimeout);
                     spinTimeout = setTimeout(() => {
-                        const updates = {
-                            gameState: 'results',
-                            timer: RESULTS_SECONDS,
-                            resultsEndsAt: getServerNow() + RESULTS_SECONDS * 1000
-                        };
+                        engineState.drawnNumbers.push(winningNumber);
+                        engineState.spinCount++;
 
-                        if (hasWinningNumber) {
-                            updates.drawnNumbers = [winningNumber];
-                        } else {
-                            updates.drawnNumbers = [];
-                        }
-
-                        // A round with fewer than two taken numbers never has a winner.
-                        updates.winners = [];
-                        gameRef.transaction(current => {
-                            if (!current || current.gameState !== 'spinning') return current;
-                            return { ...current, ...updates };
+                        gameRef.update({
+                            drawnNumbers: engineState.drawnNumbers,
+                            spinCount: engineState.spinCount,
+                            gameState: 'results'
                         });
 
-                        if (hasWinningNumber) {
-                            engineState.drawnNumbers = [winningNumber];
-                            arrowCenter.textContent = winningNumber;
-                            arrowCenter.classList.add('reveal');
-                            spinEls[0].textContent = winningNumber;
-                            spinEls[0].classList.add('reveal', 'active');
-                            updateWheel();
-                        }
+                        arrowCenter.textContent = winningNumber;
+                        arrowCenter.classList.add('reveal');
+                        spinEls[0].textContent = winningNumber;
+                        spinEls[0].classList.add('reveal', 'active');
+
+                        updateStatus(`🎯 Winning number: <span class="highlight">${winningNumber}</span>`);
+                        updateWheel();
 
                         spinningIndicator.classList.remove('active');
                         engineState.isSpinning = false;
                         engineState.spinInProgress = false;
                         spinTimeout = null;
 
-                        if (spinOutcome === 'no_picks' || numbers.length === 0) {
-                            updateStatus('❌ No players pick a number.');
-                            setTimeout(() => showNoGameMessage('❌ No players pick a number.'), 300);
-                        } else if (spinOutcome === 'no_winner' || numbers.length < 2) {
-                            updateStatus('😔 No winner this round.');
-                            setTimeout(() => showNoGameMessage('😔 No winner this round.'), 300);
-                        } else {
-                            playWinningAudio();
-                            updateStatus(`🎯 Winning number: <span class="highlight">${winningNumber}</span>`);
-                            setTimeout(() => checkAndAnnounceWinners(Math.floor(numbers.length * currentBet * 0.85)), 300);
-                        }
+                        setTimeout(() => {
+                            showNoGameMessage();
+                        }, 1000);
                     }, 4200);
-                }).catch(error => {
-                    handleError(error, 'Execute Spin');
+                    return;
+                }
+
+                // Normal round (2+ players)
+                const winningNumber = numbers[Math.floor(Math.random() * numbers.length)];
+                const targetAngle = getAngleForNumber(winningNumber);
+                const fullRotations = 4 + Math.floor(Math.random() * 2);
+                const extraDegrees = 360 * fullRotations + targetAngle;
+
+                arrowContainer.style.transition = 'none';
+                arrowContainer.style.transform = 'rotate(0deg)';
+                void arrowContainer.offsetHeight;
+
+                arrowContainer.style.transition = `transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)`;
+                arrowContainer.style.transform = `rotate(${extraDegrees}deg)`;
+
+                engineState.cumulativeRotation = extraDegrees;
+
+                const totalPlayers = numbers.length;
+                const totalPot = totalPlayers * currentBet;
+                const prizePool = Math.floor(totalPot * 0.85);
+
+                gameRef.update({
+                    cumulativeRotation: extraDegrees,
+                    spinCount: engineState.spinCount + 1,
+                    timer: 5,
+                    potAmount: totalPot
+                });
+
+                if (spinTimeout) {
+                    clearTimeout(spinTimeout);
+                    spinTimeout = null;
+                }
+
+                spinTimeout = setTimeout(() => {
+                    engineState.drawnNumbers.push(winningNumber);
+                    engineState.spinCount++;
+
+                    gameRef.update({
+                        drawnNumbers: engineState.drawnNumbers,
+                        spinCount: engineState.spinCount,
+                        gameState: 'results'
+                    });
+
+                    arrowCenter.textContent = winningNumber;
+                    arrowCenter.classList.add('reveal');
+                    spinEls[0].textContent = winningNumber;
+                    spinEls[0].classList.add('reveal', 'active');
+
+                    playWinningAudio();
+                    updateStatus(`🎯 Winning number: <span class="highlight">${winningNumber}</span>`);
+                    updateWheel();
+
+                    spinningIndicator.classList.remove('active');
                     engineState.isSpinning = false;
                     engineState.spinInProgress = false;
-                    spinningIndicator.classList.remove('active');
-                });
+                    spinTimeout = null;
+
+                    setTimeout(() => {
+                        checkAndAnnounceWinners(prizePool);
+                    }, 1000);
+                }, 4200);
+
             } catch (error) {
                 handleError(error, 'Execute Spin');
                 engineState.isSpinning = false;
@@ -3486,14 +3394,18 @@
                     clearTimeout(spinTimeout);
                     spinTimeout = null;
                 }
+                gameRef.update({ gameState: 'selection', timer: 30 });
             }
         }
 
-        function showNoGameMessage(message = '😔 No winner this round.') {
+        function showNoGameMessage() {
+            const winners = engineState.winners || [];
+            const winningNumber = engineState.drawnNumbers[0] || '?';
             winnersList.innerHTML = `
                 <div style="padding:20px;text-align:center;">
                     <div style="font-size:2rem;margin-bottom:8px;">😔</div>
-                    <div style="color:#f5d76e;font-weight:600;">${message}</div>
+                    <div style="color:#f5d76e;font-weight:600;">Only one player – no game this round.</div>
+                    <div style="color:#8ab0c8;font-size:0.8rem;margin-top:4px;">Winning number: ${winningNumber}</div>
                 </div>
             `;
             winnersModal.classList.add('active');
@@ -3639,8 +3551,8 @@
         function init() {
             authLoginBtn.onclick = handleLogin;
             authSignupBtn.onclick = handleSignup;
-            bet15Btn.onclick = () => { selectBet(15); };
-            bet30Btn.onclick = () => { selectBet(30); };
+            bet10Btn.onclick = () => { selectBet(10); };
+            bet20Btn.onclick = () => { selectBet(20); };
 
             welcomeLogoutBtn.onclick = function() {
                 if (confirm('Are you sure you want to logout? All your local data will be cleared.')) {
@@ -3659,8 +3571,8 @@
                 depositAmount.value = '';
                 depositModal.classList.add('active');
             };
-            switchBet15.onclick = () => { switchBet(15); };
-            switchBet30.onclick = () => { switchBet(30); };
+            switchBet10.onclick = () => { switchBet(10); };
+            switchBet20.onclick = () => { switchBet(20); };
             moreBtn.onclick = toggleMoreDropdown;
             depositBtn.onclick = () => {
                 depositPlayBalance.textContent = walletData.play;
@@ -3719,19 +3631,9 @@
                 tg.BackButton.show();
             }
 
-            // V2 security/session behavior: never restore a previous login
-            // from localStorage on app startup. Firebase account data is kept,
-            // but every new app session must pass through the login screen.
-            // This prevents a stale saved username from joining a room before
-            // the user has authenticated in the current session.
+            // Never auto-login from a saved session. Recall credentials only.
             currentUser = null;
-            DB.setCurrentUser(null);
-            DB.setSavedBet(null);
             showAuthScreen();
-            // Detect Telegram only to prefill/confirm the username.
-            // Never authenticate or register a Firebase user automatically.
-            telegramDetectionAttempts = 0;
-            attemptTelegramDetection();
         }
 
         // Start the app
