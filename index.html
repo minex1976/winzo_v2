@@ -1504,6 +1504,7 @@
             <div class="telegram-info" id="telegramInfo">📱 Detecting Telegram user...</div>
             <input type="text" id="authUsername" placeholder="Username" maxlength="20" autocomplete="username">
             <input type="password" id="authPassword" placeholder="Password" minlength="4" autocomplete="current-password">
+            <div style="text-align:center;color:#8ab0c8;font-size:.68rem;margin-top:-6px;">Remembered on this device after a successful login.</div>
             <button class="auth-btn" id="authLoginBtn">Login</button>
             <button class="auth-btn auth-btn-secondary" id="authSignupBtn">Sign Up</button>
             <div style="text-align:center;color:#8ab0c8;font-size:0.72rem;margin-top:8px;">
@@ -1936,11 +1937,12 @@
         }
 
         // ============================================================
-        //  FIREBASE CONFIG – solve-527f4
+        //  FIREBASE CONFIG – renewed-8fe38
         // ============================================================
         const firebaseConfig = {
             apiKey: "AIzaSyA2VCeCTCx_NAcsxK-es1DCTmRjOD43dt4",
             authDomain: "renewed-8fe38.firebaseapp.com",
+            databaseURL: "https://renewed-8fe38-default-rtdb.firebaseio.com",
             projectId: "renewed-8fe38",
             storageBucket: "renewed-8fe38.firebasestorage.app",
             messagingSenderId: "741808375705",
@@ -1970,12 +1972,22 @@
         // ============================================================
         //  LOCAL DB – clear all data on logout
         // ============================================================
-        const APP_VERSION = '2.0';
+        const APP_VERSION = '2.2';
         const DB = {
             getCurrentUser() { return localStorage.getItem('bingo_current_user') || null; },
             setCurrentUser(username) {
                 if (username) localStorage.setItem('bingo_current_user', username);
                 else localStorage.removeItem('bingo_current_user');
+            },
+            getSavedCredentials() {
+                try {
+                    return JSON.parse(localStorage.getItem('bingo_saved_credentials') || 'null');
+                } catch {
+                    return null;
+                }
+            },
+            setSavedCredentials(username, password) {
+                localStorage.setItem('bingo_saved_credentials', JSON.stringify({ username, password }));
             },
             getSavedBet() {
                 try { return parseInt(localStorage.getItem('bingo_saved_bet')) || null; } catch { return null; }
@@ -2344,6 +2356,15 @@
                 userWalletRef = null; }
             if (pendingTxListener) { pendingTxListener.off();
                 pendingTxListener = null; }
+
+            // Recall the last successful credentials into the form.
+            // This does NOT authenticate automatically.
+            const savedCredentials = DB.getSavedCredentials();
+            if (savedCredentials?.username) {
+                authUsername.value = savedCredentials.username;
+                authPassword.value = savedCredentials.password || '';
+            }
+
             attemptTelegramDetection();
         }
 
@@ -2423,6 +2444,7 @@
                         authError.textContent = '✅ Account created! +10 Birr bonus.';
                         currentUser = username;
                         DB.setCurrentUser(username);
+                        DB.setSavedCredentials(username, password);
                         syncWalletFromFirebase();
                         checkPendingTransactionStatus();
                         showWelcomeScreen();
@@ -2438,6 +2460,7 @@
                 } else if (userData.password === password) {
                     currentUser = username;
                     DB.setCurrentUser(username);
+                    DB.setSavedCredentials(username, password);
                     authError.textContent = '';
                     syncWalletFromFirebase();
                     checkPendingTransactionStatus();
@@ -2935,6 +2958,9 @@
                 if (syncInProgress) return;
                 const data = snapshot.val();
                 if (data) syncGameState(data);
+            }, error => {
+                console.error('❌ Firebase room listener error:', error);
+                setConnectionStatus(false, '❌ Firebase connection error');
             });
 
             gameRef.child('players/' + currentUser).onDisconnect().remove();
@@ -2980,15 +3006,8 @@
 
                     if (!phaseDeadline) {
                         const legacySeconds = Number(data.timer);
-                        if (Number.isFinite(legacySeconds) && legacySeconds > 0) {
-                            // Temporary display while Firebase repairs the room.
-                            // The transaction below persists the real deadline.
-                            phaseDeadline = getServerNow() + legacySeconds * 1000;
-                            engineState.timer = legacySeconds;
-                        } else {
-                            engineState.timer = 0;
-                        }
-
+                        engineState.timer = Number.isFinite(legacySeconds) && legacySeconds > 0
+                            ? legacySeconds : SELECTION_SECONDS;
                         initializeSelectionDeadline();
                     } else {
                         engineState.timer = getRemainingSeconds(phaseDeadline);
@@ -3040,18 +3059,11 @@
                 }
 
                 if (engineState.gamePhase === 'selection') {
-                    startTimer();
-                    if (engineState.timer <= 0) {
+                    if (phaseDeadline) {
+                        startTimer();
+                    } else {
                         stopTimer();
-                        if (engineState.activePlayersCount >= 1) {
-                            if (!audioPlayedThisRound) {
-                                playGetReadyAudio();
-                                audioPlayedThisRound = true;
-                            }
-                            attemptStartSpin();
-                        } else {
-                            initializeSelectionDeadline();
-                        }
+                        initializeSelectionDeadline();
                     }
                 } else {
                     stopTimer();
@@ -3089,22 +3101,28 @@
         //  TIMER
         // ============================================================
         function startTimer() {
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
+            if (timerInterval) clearInterval(timerInterval);
+            if (engineState.gamePhase !== 'selection' || !gameRef) return;
+            if (!Number(phaseDeadline)) {
+                // Wait for initializeSelectionDeadline() to persist the shared
+                // Firebase deadline instead of treating a missing deadline as 0.
+                initializeSelectionDeadline();
+                return;
             }
-            if (isTimerRunning || engineState.gamePhase !== 'selection' || !gameRef) return;
 
             isTimerRunning = true;
+
             const tick = () => {
                 if (engineState.gamePhase !== 'selection' || !gameRef) {
                     stopTimer();
                     return;
                 }
-                engineState.timer = getRemainingSeconds(phaseDeadline);
-                timerDisplay.textContent = engineState.timer;
 
-                if (engineState.timer <= 0) {
+                const remaining = getRemainingSeconds(phaseDeadline);
+                engineState.timer = remaining;
+                timerDisplay.textContent = remaining;
+
+                if (remaining <= 0) {
                     stopTimer();
                     attemptStartSpin();
                 }
