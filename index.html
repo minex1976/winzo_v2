@@ -1506,6 +1506,9 @@
             <input type="password" id="authPassword" placeholder="Password" minlength="4" autocomplete="current-password">
             <button class="auth-btn" id="authLoginBtn">Login</button>
             <button class="auth-btn auth-btn-secondary" id="authSignupBtn">Sign Up</button>
+            <div style="text-align:center;color:#8ab0c8;font-size:0.72rem;margin-top:8px;">
+                Telegram detection only fills your username. Press Login to continue.
+            </div>
             <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
                 <span class="connection-status offline" id="authStatus">⚡ Offline</span>
             </div>
@@ -1896,9 +1899,10 @@
                         const infoEl = document.getElementById('telegramInfo');
                         if (infoEl) {
                             if (name) {
-                                infoEl.textContent = '✅ Detected Telegram: @' + name;
+                                infoEl.textContent = '✅ Telegram detected: @' + name + ' — review username and press Login.';
                                 infoEl.className = 'telegram-info detected';
                                 document.getElementById('authUsername').value = name;
+                                document.getElementById('authPassword').focus();
                             } else {
                                 infoEl.textContent = '📱 Telegram detected (no username). Enter manually.';
                                 infoEl.className = 'telegram-info not-detected';
@@ -3671,16 +3675,19 @@
                 tg.BackButton.show();
             }
 
-            const savedUser = DB.getCurrentUser();
-            if (savedUser && firebaseAvailable) {
-                currentUser = savedUser;
-                syncWalletFromFirebase();
-                checkPendingTransactionStatus();
-                showWelcomeScreen();
-                setConnectionStatus(true);
-            } else {
-                showAuthScreen();
-            }
+            // V2 security/session behavior: never restore a previous login
+            // from localStorage on app startup. Firebase account data is kept,
+            // but every new app session must pass through the login screen.
+            // This prevents a stale saved username from joining a room before
+            // the user has authenticated in the current session.
+            currentUser = null;
+            DB.setCurrentUser(null);
+            DB.setSavedBet(null);
+            showAuthScreen();
+            // Detect Telegram only to prefill/confirm the username.
+            // Never authenticate or register a Firebase user automatically.
+            telegramDetectionAttempts = 0;
+            attemptTelegramDetection();
         }
 
         // Start the app
